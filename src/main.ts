@@ -161,6 +161,7 @@ export default class ShikiCustomPlugin extends Plugin {
             const highlightedHtml = await this.highlighter.highlightCode(
                 code,
                 config.language,
+                config,
                 config.customTheme
             );
 
@@ -193,6 +194,12 @@ export default class ShikiCustomPlugin extends Plugin {
         preElement: HTMLElement,
         config: CodeBlockConfig,
     ) {
+        // Store original code for copy functionality
+        const codeElement = preElement.querySelector("code");
+        if (codeElement) {
+            preElement.setAttribute("data-original-code", codeElement.textContent || "");
+        }
+
         // Add line numbers
         if (config.showLineNumbers || this.settings.enableLineNumbers) {
             this.addLineNumbers(preElement, config.startLineNumber);
@@ -208,20 +215,83 @@ export default class ShikiCustomPlugin extends Plugin {
             this.addTitle(preElement, config.title);
         }
 
-        // Add language label
-        if (this.settings.enableLanguageLabel && config.language !== 'text') {
-            this.addLanguageLabel(preElement, config.language);
-        }
-
-        // Add copy button
-        if (this.settings.enableCodeCopy) {
-            this.addCopyButton(preElement);
-        }
-
         // Add folding capability
-        if (config.fold || config.unfold || this.settings.enableFolding) {
+        if (config.fold || config.unfold) {
             this.addFoldingCapability(preElement, config.fold);
         }
+
+        // Add interactive features that need JavaScript
+        this.addInteractiveFeatures(preElement, config);
+    }
+
+    private addInteractiveFeatures(preElement: HTMLElement, _config: CodeBlockConfig) {
+        // Add copy functionality for copy-enabled blocks
+        if (this.settings.enableCodeCopy && preElement.classList.contains("shiki-with-copy")) {
+            this.addCopyClickHandler(preElement);
+        }
+
+        // Add folding functionality for foldable blocks
+        if (preElement.classList.contains("shiki-foldable")) {
+            this.addFoldingClickHandler(preElement);
+        }
+    }
+
+    private addCopyClickHandler(preElement: HTMLElement) {
+        const copyHandler = async (event: MouseEvent) => {
+            // Check if click is in the copy button area (top-right corner)
+            const rect = preElement.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            // Copy button is positioned at top-right, roughly 40px x 30px area
+            const isInCopyArea = clickX > rect.width - 60 && clickY < 40;
+
+            if (!isInCopyArea) return;
+
+            const codeContent = preElement.getAttribute("data-original-code") || "";
+
+            try {
+                await navigator.clipboard.writeText(codeContent);
+
+                // Visual feedback
+                preElement.style.setProperty('--copy-feedback', '"✅ Copied!"');
+
+                setTimeout(() => {
+                    preElement.style.removeProperty('--copy-feedback');
+                }, 2000);
+
+                if (this.settings.debugMode) {
+                    new Notice("Code copied to clipboard!");
+                }
+            } catch (error) {
+                console.error("Failed to copy code:", error);
+                preElement.style.setProperty('--copy-feedback', '"❌ Failed"');
+
+                setTimeout(() => {
+                    preElement.style.removeProperty('--copy-feedback');
+                }, 2000);
+            }
+        };
+
+        preElement.addEventListener("click", copyHandler);
+    }
+
+    private addFoldingClickHandler(preElement: HTMLElement) {
+        const foldingHandler = (event: MouseEvent) => {
+            // Check if click is in the folding button area (top-left corner)
+            const rect = preElement.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            // Folding button is positioned at top-left, roughly 30px x 30px area
+            const isInFoldArea = clickX < 40 && clickY < 40;
+
+            if (!isInFoldArea) return;
+
+            preElement.classList.toggle("shiki-folded");
+        };
+
+        preElement.addEventListener("click", foldingHandler);
     }
 
     private addLineNumbers(preElement: HTMLElement, startNumber: number = 1) {
@@ -238,7 +308,7 @@ export default class ShikiCustomPlugin extends Plugin {
 
     private addLineHighlighting(
         preElement: HTMLElement,
-        highlightLines: number[],
+        highlightLines: number[]
     ) {
         const lines = preElement.querySelectorAll(".line");
 
@@ -260,7 +330,7 @@ export default class ShikiCustomPlugin extends Plugin {
 
     private addFoldingCapability(
         preElement: HTMLElement,
-        folded: boolean = false,
+        folded: boolean = false
     ) {
         preElement.addClass("shiki-foldable");
 
@@ -272,76 +342,10 @@ export default class ShikiCustomPlugin extends Plugin {
         const titleElement = preElement.querySelector(".shiki-title");
         if (titleElement) {
             titleElement.addEventListener("click", () => {
-                const isFolded = preElement.hasClass("shiki-folded");
-                preElement.toggleClass("shiki-folded", !isFolded);
+                preElement.toggleClass("shiki-folded", !preElement.hasClass("shiki-folded"));
             });
             (titleElement as HTMLElement).style.cursor = "pointer";
         }
-    }
-
-    private addLanguageLabel(preElement: HTMLElement, language: string) {
-        const header = this.getOrCreateHeader(preElement);
-
-        const languageLabel = document.createElement("span");
-        languageLabel.className = "shiki-language-label";
-        languageLabel.textContent = language.toUpperCase();
-
-        header.appendChild(languageLabel);
-    }
-
-    private addCopyButton(preElement: HTMLElement) {
-        const header = this.getOrCreateHeader(preElement);
-
-        const copyButton = document.createElement("button");
-        copyButton.className = "shiki-copy-button";
-        copyButton.textContent = "Copy";
-        copyButton.title = "Copy code to clipboard";
-
-        copyButton.addEventListener("click", async () => {
-            const codeContent = this.getCodeContent(preElement);
-            try {
-                await navigator.clipboard.writeText(codeContent);
-                copyButton.textContent = "Copied!";
-                setTimeout(() => {
-                    copyButton.textContent = "Copy";
-                }, 2000);
-            } catch (error) {
-                console.error("Failed to copy code:", error);
-                copyButton.textContent = "Failed";
-                setTimeout(() => {
-                    copyButton.textContent = "Copy";
-                }, 2000);
-            }
-        });
-
-        header.appendChild(copyButton);
-    }
-
-    private getOrCreateHeader(preElement: HTMLElement): HTMLElement {
-        let header = preElement.querySelector(".shiki-header") as HTMLElement;
-
-        if (!header) {
-            header = document.createElement("div");
-            header.className = "shiki-header";
-            preElement.prepend(header);
-            preElement.addClass("shiki-with-header");
-        }
-
-        return header;
-    }
-
-    private getCodeContent(preElement: HTMLElement): string {
-        // Get original code from data attribute first
-        const originalCode = preElement.getAttribute("data-original-code");
-        if (originalCode) {
-            return originalCode;
-        }
-
-        // Fallback to extracting from DOM
-        const lines = preElement.querySelectorAll(".line");
-        return Array.from(lines)
-            .map(line => line.textContent || "")
-            .join("\n");
     }
 
     private refreshAllCodeBlocks() {

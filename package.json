@@ -5,11 +5,11 @@
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"build": "node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],
-	"author": "",
+	"author": "TongDucThanhNam",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
@@ -22,6 +22,7 @@
 		"typescript": "4.7.4"
 	},
 	"dependencies": {
-		"shiki": "^1.29.2"
+		"@shikijs/transformers": "^3.12.0",
+		"shiki": "^3.12.0"
 	}
 }

@@ -4,7 +4,9 @@ import {
     createHighlighter,
     type Highlighter,
 } from "shiki";
-import type { CacheEntry, ShikiPluginSettings } from "./types";
+
+import { getAllTransformers } from "./transformers";
+import type { CacheEntry, CodeBlockConfig, ShikiPluginSettings } from "./types";
 
 export class ShikiHighlighterManager {
     private highlighter: Highlighter | null = null;
@@ -31,13 +33,14 @@ export class ShikiHighlighterManager {
     async highlightCode(
         code: string,
         language: string,
+        config: CodeBlockConfig,
         theme?: string,
     ): Promise<string> {
         if (!this.highlighter) {
             throw new Error("Highlighter not initialized");
         }
 
-        const actualTheme = theme || this.getCurrentTheme();
+        const actualTheme = theme || config.customTheme || this.getCurrentTheme();
         const cacheKey = this.generateCacheKey(code, language, actualTheme);
 
         // Check cache first
@@ -49,10 +52,15 @@ export class ShikiHighlighterManager {
         }
 
         try {
+            // Get transformers based on config and settings
+            const transformers = this.settings.enableTransformers
+                ? getAllTransformers(config, this.settings)
+                : [];
+
             const html = await this.highlighter.codeToHtml(code, {
                 lang: language,
                 theme: actualTheme,
-                transformers: [],
+                transformers: transformers
             });
 
             // Cache the result

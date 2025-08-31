@@ -1,8 +1,206 @@
-/*
+/* Base code block styles */
+.shiki {
+	position: relative;
+	margin: 1em 0;
+	border-radius: 0.375rem;
+	overflow: auto;
+	font-family: "Consolas", "Monaco", "Courier New", monospace;
+	font-size: 0.875rem;
+	line-height: 1.5;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+/* Line highlighting */
+.shiki .highlighted-line {
+	background-color: rgba(255, 255, 0, 0.1);
+	border-left: 3px solid #fbbf24;
+	padding-left: 0.5rem;
+	margin-left: -0.5rem;
+}
 
-If your plugin does not need CSS, delete this file.
+/* Line numbers */
+.shiki.shiki-line-numbers {
+	padding-left: 3rem;
+}
 
-*/
+.shiki.shiki-line-numbers .line::before {
+	content: attr(data-line);
+	position: absolute;
+	left: 0;
+	width: 2.5rem;
+	text-align: right;
+	padding-right: 0.5rem;
+	color: rgba(156, 163, 175, 0.7);
+	font-size: 0.75rem;
+	user-select: none;
+}
+
+/* Title */
+.shiki.shiki-with-title::before {
+	content: attr(data-title);
+	display: block;
+	padding: 0.5rem 1rem;
+	background-color: rgba(0, 0, 0, 0.1);
+	border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+	font-weight: bold;
+	font-size: 0.875rem;
+}
+
+/* Copy button */
+.shiki.shiki-with-copy {
+	position: relative;
+	cursor: pointer;
+}
+
+.shiki.shiki-with-copy::after {
+	content: var(--copy-feedback, "📋");
+	position: absolute;
+	top: 0.5rem;
+	right: 0.5rem;
+	padding: 0.25rem 0.5rem;
+	background-color: rgba(0, 0, 0, 0.7);
+	color: white;
+	border-radius: 0.25rem;
+	cursor: pointer;
+	font-size: 0.75rem;
+	opacity: 0;
+	transition: opacity 0.2s;
+	user-select: none;
+	z-index: 10;
+}
+
+.shiki.shiki-with-copy:hover::after {
+	opacity: 1;
+}
+
+.shiki.shiki-with-copy::after:hover {
+	background-color: rgba(0, 0, 0, 0.9);
+}
+
+/* Language label */
+.shiki.shiki-with-lang::before {
+	content: attr(data-language);
+	position: absolute;
+	top: 0.5rem;
+	left: 0.5rem;
+	padding: 0.125rem 0.375rem;
+	background-color: rgba(0, 0, 0, 0.7);
+	color: white;
+	border-radius: 0.25rem;
+	font-size: 0.625rem;
+	text-transform: uppercase;
+	font-weight: bold;
+	z-index: 1;
+}
+
+/* Word wrap */
+.shiki.shiki-word-wrap {
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.shiki.shiki-word-wrap code {
+	white-space: pre-wrap;
+}
+
+/* Folding */
+.shiki.shiki-foldable {
+	position: relative;
+}
+
+.shiki.shiki-foldable::before {
+	content: "▼";
+	position: absolute;
+	top: 0.5rem;
+	left: 0.5rem;
+	cursor: pointer;
+	user-select: none;
+	z-index: 2;
+	background-color: rgba(0, 0, 0, 0.7);
+	color: white;
+	border-radius: 0.25rem;
+	padding: 0.125rem 0.25rem;
+	font-size: 0.75rem;
+	transition: all 0.2s;
+}
+
+.shiki.shiki-foldable::before:hover {
+	background-color: rgba(0, 0, 0, 0.9);
+	transform: scale(1.1);
+}
+
+.shiki.shiki-foldable.shiki-folded::before {
+	content: "▶";
+}
+
+.shiki.shiki-foldable.shiki-folded code {
+	display: none;
+}
+
+.shiki.shiki-foldable.shiki-folded::after {
+	content: "... (click to expand)";
+	display: block;
+	padding: 1rem;
+	color: rgba(156, 163, 175, 0.7);
+	font-style: italic;
+	cursor: pointer;
+	text-align: center;
+}
+
+/* Excluded blocks */
+.shiki.shiki-excluded {
+	display: none !important;
+}
+
+/* Multiple features combined */
+.shiki.shiki-with-title.shiki-with-lang::before {
+	/* Title takes precedence, language label moves to top-right */
+	top: 0.5rem;
+	right: 0.5rem;
+	left: auto;
+}
+
+.shiki.shiki-with-copy.shiki-with-lang::after {
+	/* Move copy button down when language label is present */
+	top: 2rem;
+}
+
+.shiki.shiki-with-title.shiki-with-copy::after {
+	/* Move copy button down when title is present */
+	top: 3rem;
+}
+
+/* Dark theme adjustments */
+.theme-dark .shiki.shiki-with-title::before {
+	background-color: rgba(255, 255, 255, 0.1);
+	border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.theme-dark .shiki .highlighted-line {
+	background-color: rgba(255, 255, 0, 0.15);
+	border-left-color: #fbbf24;
+}
+
+/* Custom scrollbar for code blocks */
+.shiki::-webkit-scrollbar {
+	height: 0.5rem;
+	width: 0.5rem;
+}
+
+.shiki::-webkit-scrollbar-track {
+	background: rgba(0, 0, 0, 0.1);
+	border-radius: 0.25rem;
+}
+
+.shiki::-webkit-scrollbar-thumb {
+	background: rgba(0, 0, 0, 0.3);
+	border-radius: 0.25rem;
+}
+
+.shiki::-webkit-scrollbar-thumb:hover {
+	background: rgba(0, 0, 0, 0.5);
+}
+
+/* Interactive features */
+.shiki-copy-button {
+	display: none;
+}
