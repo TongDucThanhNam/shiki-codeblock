@@ -1,24 +1,44 @@
-import { type MarkdownPostProcessorContext, Notice, Plugin } from "obsidian";
+import { Notice, Plugin } from "obsidian";
+import { CodeProcessor } from "./code-processor";
 import { ShikiHighlighterManager } from "./highlighter";
 import { CodeBlockParser } from "./parser";
-import { DEFAULT_SETTINGS, ShikiSettingTab } from "./settings";
-import type { CodeBlockConfig, ShikiPluginSettings } from "./types";
+import { ShikiSettingTab } from "./settings";
+import { SettingsManager } from "./settings-manager";
+import { TransformersManager } from "./transformers-manager";
+import type { ShikiPluginSettings } from "./types";
+import { UIManager } from "./ui-manager";
 
 export default class ShikiCustomPlugin extends Plugin {
     settings: ShikiPluginSettings;
     highlighter: ShikiHighlighterManager;
     parser: CodeBlockParser;
     settingsTab: ShikiSettingTab;
+    uiManager: UIManager;
+    codeProcessor: CodeProcessor;
+    transformersManager: TransformersManager;
+    settingsManager: SettingsManager;
 
     async onload() {
+        // Initialize managers first
+        this.settingsManager = new SettingsManager();
+
         await this.loadSettings();
 
+        this.uiManager = new UIManager(this.settings);
+        this.transformersManager = new TransformersManager(this.settings);
+
         // Apply UI settings on startup
-        this.applyUISettings();
+        this.uiManager.applyUISettings();
 
         // Initialize components
         this.highlighter = new ShikiHighlighterManager(this.settings);
         this.parser = new CodeBlockParser();
+        this.codeProcessor = new CodeProcessor(
+            this.settings,
+            this.highlighter,
+            this.parser,
+            this.transformersManager,
+        );
 
         // Initialize highlighter
         try {
@@ -32,10 +52,14 @@ export default class ShikiCustomPlugin extends Plugin {
         }
 
         // Register processors
-        this.registerMarkdownPostProcessor(this.processCodeBlocks.bind(this));
+        this.registerMarkdownPostProcessor(
+            this.codeProcessor.processCodeBlocks.bind(this.codeProcessor),
+        );
 
         if (this.settings.enableInlineHighlight) {
-            this.registerMarkdownPostProcessor(this.processInlineCode.bind(this));
+            this.registerMarkdownPostProcessor(
+                this.codeProcessor.processInlineCode.bind(this.codeProcessor),
+            );
         }
 
         // Add settings tab
@@ -46,7 +70,7 @@ export default class ShikiCustomPlugin extends Plugin {
         this.registerEvent(
             this.app.workspace.on("css-change", () => {
                 if (this.settings.autoThemeSwitch) {
-                    this.refreshAllCodeBlocks();
+                    this.codeProcessor.refreshAllCodeBlocks();
                 }
             }),
         );
@@ -55,7 +79,7 @@ export default class ShikiCustomPlugin extends Plugin {
         this.addCommand({
             id: "refresh-highlighting",
             name: "Refresh Code Highlighting",
-            callback: () => this.refreshAllCodeBlocks(),
+            callback: () => this.codeProcessor.refreshAllCodeBlocks(),
         });
 
         this.addCommand({
@@ -73,7 +97,9 @@ export default class ShikiCustomPlugin extends Plugin {
             callback: async () => {
                 this.settings.enableLineNumbers = !this.settings.enableLineNumbers;
                 await this.saveSettings();
-                new Notice(`Line numbers ${this.settings.enableLineNumbers ? 'enabled' : 'disabled'}`);
+                new Notice(
+                    `Line numbers ${this.settings.enableLineNumbers ? "enabled" : "disabled"}`,
+                );
             },
         });
 
@@ -86,369 +112,29 @@ export default class ShikiCustomPlugin extends Plugin {
         });
     }
 
-    async processCodeBlocks(
-        element: HTMLElement,
-        _ctx: MarkdownPostProcessorContext,
-    ) {
-        const codeBlocks = element.querySelectorAll("pre > code");
-
-        for (let i = 0; i < codeBlocks.length; i++) {
-            const codeElement = codeBlocks[i];
-            const preElement = codeElement.parentElement;
-            if (!preElement) continue;
-
-            // Skip if already processed
-            if (preElement.hasClass("shiki-processed")) continue;
-
-            try {
-                await this.highlightCodeBlock(codeElement as HTMLElement, preElement);
-                preElement.addClass("shiki-processed");
-            } catch (error) {
-                console.error("Error processing code block:", error);
-            }
-        }
-    }
-
-    async processInlineCode(element: HTMLElement) {
-        const inlineCodes = element.querySelectorAll("code:not(pre > code)");
-
-        for (let i = 0; i < inlineCodes.length; i++) {
-            const codeElement = inlineCodes[i];
-            if (codeElement.hasClass("shiki-inline-processed")) continue;
-
-            const text = codeElement.textContent || "";
-            const parsed = this.parser.parseInlineCode(text);
-
-            if (parsed) {
-                try {
-                    const highlighted = await this.highlighter.highlightInlineCode(
-                        parsed.code,
-                        parsed.lang,
-                    );
-                    codeElement.innerHTML = highlighted;
-                    codeElement.addClass("shiki-inline-processed");
-                } catch (error) {
-                    console.error("Error processing inline code:", error);
-                }
-            }
-        }
-    }
-
-    private async highlightCodeBlock(
-        codeElement: HTMLElement,
-        preElement: HTMLElement,
-    ) {
-        const code = codeElement.textContent || "";
-        const langClass = codeElement.className.match(/language-(\S+)/);
-        const langString = langClass ? langClass[1] : "";
-
-        // Parse configuration
-        let config = this.parser.parseCodeBlockConfig(langString);
-
-        // Validate and sanitize configuration
-        if (!this.parser.validateConfig(config)) {
-            if (this.settings.debugMode) {
-                console.warn('Invalid code block configuration, sanitizing:', config);
-            }
-            config = this.parser.sanitizeConfig(config);
-        }
-
-        // Skip if excluded
-        if (config.exclude) return;
-
-        try {
-            // Get highlighted HTML
-            const highlightedHtml = await this.highlighter.highlightCode(
-                code,
-                config.language,
-                config,
-                config.customTheme
-            );
-
-            // Parse the HTML to extract and modify
-            const tempDiv = document.createElement("div");
-            tempDiv.innerHTML = highlightedHtml;
-
-            const shikiPre = tempDiv.querySelector("pre");
-            const shikiCode = tempDiv.querySelector("code");
-
-            if (!shikiPre || !shikiCode) return;
-
-            // Apply transformations
-            this.applyCodeBlockTransformations(shikiPre, config);
-
-            // Replace original content
-            preElement.innerHTML = shikiPre.innerHTML;
-            preElement.className = shikiPre.className;
-
-            // Store original data for refresh
-            preElement.setAttribute("data-original-code", code);
-            preElement.setAttribute("data-language", config.language);
-            preElement.setAttribute("data-config", langString);
-        } catch (error) {
-            console.error("Error highlighting code block:", error);
-        }
-    }
-
-    private applyCodeBlockTransformations(
-        preElement: HTMLElement,
-        config: CodeBlockConfig,
-    ) {
-        // Store original code for copy functionality
-        const codeElement = preElement.querySelector("code");
-        if (codeElement) {
-            preElement.setAttribute("data-original-code", codeElement.textContent || "");
-        }
-
-        // Add line numbers
-        if (config.showLineNumbers || this.settings.enableLineNumbers) {
-            this.addLineNumbers(preElement, config.startLineNumber);
-        }
-
-        // Add line highlighting
-        if (config.highlightLines.length > 0) {
-            this.addLineHighlighting(preElement, config.highlightLines);
-        }
-
-        // Add title
-        if (config.title) {
-            this.addTitle(preElement, config.title);
-        }
-
-        // Add folding capability
-        if (config.fold || config.unfold) {
-            this.addFoldingCapability(preElement, config.fold);
-        }
-
-        // Add interactive features that need JavaScript
-        this.addInteractiveFeatures(preElement, config);
-    }
-
-    private addInteractiveFeatures(preElement: HTMLElement, _config: CodeBlockConfig) {
-        // Add copy functionality for copy-enabled blocks
-        if (this.settings.enableCodeCopy && preElement.classList.contains("shiki-with-copy")) {
-            this.addCopyClickHandler(preElement);
-        }
-
-        // Add folding functionality for foldable blocks
-        if (preElement.classList.contains("shiki-foldable")) {
-            this.addFoldingClickHandler(preElement);
-        }
-    }
-
-    private addCopyClickHandler(preElement: HTMLElement) {
-        const copyHandler = async (event: MouseEvent) => {
-            // Check if click is in the copy button area (top-right corner)
-            const rect = preElement.getBoundingClientRect();
-            const clickX = event.clientX - rect.left;
-            const clickY = event.clientY - rect.top;
-
-            // Copy button is positioned at top-right, roughly 40px x 30px area
-            const isInCopyArea = clickX > rect.width - 60 && clickY < 40;
-
-            if (!isInCopyArea) return;
-
-            const codeContent = preElement.getAttribute("data-original-code") || "";
-
-            try {
-                await navigator.clipboard.writeText(codeContent);
-
-                // Visual feedback
-                preElement.style.setProperty('--copy-feedback', '"✅ Copied!"');
-
-                setTimeout(() => {
-                    preElement.style.removeProperty('--copy-feedback');
-                }, 2000);
-
-                if (this.settings.debugMode) {
-                    new Notice("Code copied to clipboard!");
-                }
-            } catch (error) {
-                console.error("Failed to copy code:", error);
-                preElement.style.setProperty('--copy-feedback', '"❌ Failed"');
-
-                setTimeout(() => {
-                    preElement.style.removeProperty('--copy-feedback');
-                }, 2000);
-            }
-        };
-
-        preElement.addEventListener("click", copyHandler);
-    }
-
-    private addFoldingClickHandler(preElement: HTMLElement) {
-        const foldingHandler = (event: MouseEvent) => {
-            // Check if click is in the folding button area (top-left corner)
-            const rect = preElement.getBoundingClientRect();
-            const clickX = event.clientX - rect.left;
-            const clickY = event.clientY - rect.top;
-
-            // Folding button is positioned at top-left, roughly 30px x 30px area
-            const isInFoldArea = clickX < 40 && clickY < 40;
-
-            if (!isInFoldArea) return;
-
-            preElement.classList.toggle("shiki-folded");
-        };
-
-        preElement.addEventListener("click", foldingHandler);
-    }
-
-    private addLineNumbers(preElement: HTMLElement, startNumber: number = 1) {
-        preElement.addClass("shiki-line-numbers");
-        const lines = preElement.querySelectorAll(".line");
-
-        lines.forEach((line, index) => {
-            const lineNumber = document.createElement("span");
-            lineNumber.className = "line-number";
-            lineNumber.textContent = (startNumber + index).toString();
-            line.prepend(lineNumber);
-        });
-    }
-
-    private addLineHighlighting(
-        preElement: HTMLElement,
-        highlightLines: number[]
-    ) {
-        const lines = preElement.querySelectorAll(".line");
-
-        lines.forEach((line, index) => {
-            if (highlightLines.includes(index + 1)) {
-                line.addClass("highlighted-line");
-            }
-        });
-    }
-
-    private addTitle(preElement: HTMLElement, title: string) {
-        const titleElement = document.createElement("div");
-        titleElement.className = "shiki-title";
-        titleElement.textContent = title;
-
-        preElement.addClass("shiki-with-title");
-        preElement.prepend(titleElement);
-    }
-
-    private addFoldingCapability(
-        preElement: HTMLElement,
-        folded: boolean = false
-    ) {
-        preElement.addClass("shiki-foldable");
-
-        if (folded) {
-            preElement.addClass("shiki-folded");
-        }
-
-        // Add click handler for folding
-        const titleElement = preElement.querySelector(".shiki-title");
-        if (titleElement) {
-            titleElement.addEventListener("click", () => {
-                preElement.toggleClass("shiki-folded", !preElement.hasClass("shiki-folded"));
-            });
-            (titleElement as HTMLElement).style.cursor = "pointer";
-        }
-    }
-
-    private refreshAllCodeBlocks() {
-        // Find all processed code blocks and re-highlight them
-        const processedBlocks = document.querySelectorAll("pre.shiki-processed");
-
-        processedBlocks.forEach(async (preElement) => {
-            const originalCode = preElement.getAttribute("data-original-code");
-            const language = preElement.getAttribute("data-language");
-            const configString = preElement.getAttribute("data-config");
-
-            if (originalCode && language) {
-                preElement.removeClass("shiki-processed");
-
-                const codeElement = preElement.querySelector("code");
-                if (codeElement) {
-                    codeElement.textContent = originalCode;
-                    codeElement.className = `language-${configString || language}`;
-
-                    await this.highlightCodeBlock(codeElement, preElement as HTMLElement);
-                }
-            }
-        });
-    }
-
     async loadSettings() {
         const loadedData = await this.loadData();
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+        this.settings = this.settingsManager.mergeWithDefaults(loadedData);
 
         // Validate and migrate settings if needed
         this.validateAndMigrateSettings();
 
         if (this.settings.debugMode) {
-            console.log('[Shiki Debug] Settings loaded:', this.settings);
+            console.log("[Shiki Debug] Settings loaded:", this.settings);
         }
     }
 
     private validateAndMigrateSettings(): void {
-        let settingsChanged = false;
-
-        // Ensure arrays exist and have valid values
-        if (!Array.isArray(this.settings.languages) || this.settings.languages.length === 0) {
-            this.settings.languages = DEFAULT_SETTINGS.languages;
-            settingsChanged = true;
-        }
-
-        if (!Array.isArray(this.settings.themes) || this.settings.themes.length === 0) {
-            this.settings.themes = DEFAULT_SETTINGS.themes;
-            settingsChanged = true;
-        }
-
-        // Validate numeric values
-        if (typeof this.settings.maxCacheSize !== 'number' || this.settings.maxCacheSize < 1) {
-            this.settings.maxCacheSize = DEFAULT_SETTINGS.maxCacheSize;
-            settingsChanged = true;
-        }
-
-        if (typeof this.settings.cacheExpirationDays !== 'number' || this.settings.cacheExpirationDays < 1) {
-            this.settings.cacheExpirationDays = DEFAULT_SETTINGS.cacheExpirationDays;
-            settingsChanged = true;
-        }
-
-        // Validate string values
-        if (!this.settings.fontSize || typeof this.settings.fontSize !== 'string') {
-            this.settings.fontSize = DEFAULT_SETTINGS.fontSize;
-            settingsChanged = true;
-        }
-
-        if (!this.settings.fontFamily || typeof this.settings.fontFamily !== 'string') {
-            this.settings.fontFamily = DEFAULT_SETTINGS.fontFamily;
-            settingsChanged = true;
-        }
-
-        // Ensure theme values are valid
-        const validThemes = [...DEFAULT_SETTINGS.themes, 'dracula', 'monokai', 'one-dark-pro', 'solarized-light', 'material-theme-darker', 'material-theme-lighter'];
-
-        if (!validThemes.includes(this.settings.defaultTheme)) {
-            this.settings.defaultTheme = DEFAULT_SETTINGS.defaultTheme;
-            settingsChanged = true;
-        }
-
-        if (!validThemes.includes(this.settings.defaultDarkTheme)) {
-            this.settings.defaultDarkTheme = DEFAULT_SETTINGS.defaultDarkTheme;
-            settingsChanged = true;
-        }
-
-        if (!validThemes.includes(this.settings.defaultLightTheme)) {
-            this.settings.defaultLightTheme = DEFAULT_SETTINGS.defaultLightTheme;
-            settingsChanged = true;
-        }
-
-        // Add any new settings that might not exist in older versions by merging with defaults
-        const mergedSettings = { ...DEFAULT_SETTINGS, ...this.settings };
-        if (JSON.stringify(mergedSettings) !== JSON.stringify(this.settings)) {
-            this.settings = mergedSettings;
-            settingsChanged = true;
-        }
+        const result = this.settingsManager.validateAndMigrateSettings(
+            this.settings,
+        );
+        this.settings = result.settings;
 
         // Save settings if they were changed during validation
-        if (settingsChanged) {
+        if (result.changed) {
             this.saveSettings();
             if (this.settings.debugMode) {
-                console.log('[Shiki Debug] Settings validated and migrated');
+                console.log("[Shiki Debug] Settings validated and migrated");
             }
         }
     }
@@ -456,179 +142,23 @@ export default class ShikiCustomPlugin extends Plugin {
     async saveSettings() {
         await this.saveData(this.settings);
 
-        // Update highlighter settings
+        // Update component settings
         this.highlighter?.updateSettings(this.settings);
+        this.uiManager?.updateSettings(this.settings);
+        this.codeProcessor?.updateSettings(this.settings);
 
         // Apply UI settings
-        this.applyUISettings();
+        this.uiManager?.applyUISettings();
 
         // Re-register inline processor if setting changed
         if (this.settings.enableInlineHighlight) {
-            this.registerMarkdownPostProcessor(this.processInlineCode.bind(this));
+            this.registerMarkdownPostProcessor(
+                this.codeProcessor.processInlineCode.bind(this.codeProcessor),
+            );
         }
 
         // Refresh all code blocks to apply new settings
-        this.refreshAllCodeBlocks();
-    }
-
-    private applyUISettings(): void {
-        // Apply custom CSS
-        const styleId = 'shiki-custom-styles';
-        let styleEl = document.getElementById(styleId) as HTMLStyleElement;
-
-        if (!styleEl) {
-            styleEl = document.createElement('style');
-            styleEl.id = styleId;
-            document.head.appendChild(styleEl);
-        }
-
-        const customCSS = `
-            .shiki {
-                font-size: ${this.settings.fontSize} !important;
-                font-family: ${this.settings.fontFamily} !important;
-                line-height: ${this.settings.lineHeight} !important;
-                border-radius: ${this.settings.borderRadius} !important;
-                padding: ${this.settings.padding} !important;
-                ${!this.settings.showBackground ? 'background: transparent !important;' : ''}
-                ${this.settings.enableWordWrap ? 'white-space: pre-wrap !important; word-wrap: break-word !important;' : ''}
-                position: relative;
-            }
-            
-            .shiki code {
-                font-size: inherit !important;
-                font-family: inherit !important;
-            }
-            
-            /* Header styles */
-            .shiki-with-header {
-                position: relative;
-            }
-            
-            .shiki-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 8px 12px;
-                background: rgba(0, 0, 0, 0.1);
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: ${this.settings.borderRadius} ${this.settings.borderRadius} 0 0;
-                font-size: 12px;
-                font-weight: 500;
-            }
-            
-            .shiki-language-label {
-                color: var(--text-muted);
-                font-family: var(--font-ui);
-            }
-            
-            .shiki-copy-button {
-                background: transparent;
-                border: 1px solid var(--background-modifier-border);
-                color: var(--text-muted);
-                padding: 4px 8px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 11px;
-                transition: all 0.2s ease;
-            }
-            
-            .shiki-copy-button:hover {
-                background: var(--background-modifier-hover);
-                color: var(--text-normal);
-            }
-            
-            /* Title styles */
-            .shiki-title {
-                background: var(--background-secondary);
-                padding: 8px 12px;
-                font-weight: 600;
-                border-bottom: 1px solid var(--background-modifier-border);
-                margin-bottom: 0;
-            }
-            
-            .shiki-with-title .shiki-title {
-                border-radius: ${this.settings.borderRadius} ${this.settings.borderRadius} 0 0;
-            }
-            
-            /* Line number styles */
-            .shiki-line-numbers .line {
-                position: relative;
-                padding-left: 3em;
-            }
-            
-            .line-number {
-                position: absolute;
-                left: 0;
-                width: 2.5em;
-                text-align: right;
-                color: var(--text-muted);
-                user-select: none;
-                font-variant-numeric: tabular-nums;
-            }
-            
-            /* Highlighted lines */
-            .highlighted-line {
-                background: rgba(255, 255, 0, 0.1);
-                position: relative;
-            }
-            
-            .highlighted-line::before {
-                content: '';
-                position: absolute;
-                left: 0;
-                top: 0;
-                bottom: 0;
-                width: 3px;
-                background: var(--text-accent);
-            }
-            
-            /* Folding styles */
-            .shiki-foldable .shiki-title::after {
-                content: '▼';
-                margin-left: auto;
-                transition: transform 0.2s ease;
-            }
-            
-            .shiki-folded .shiki-title::after {
-                transform: rotate(-90deg);
-            }
-            
-            .shiki-folded pre {
-                display: none;
-            }
-            
-            /* Custom scrollbar for code blocks */
-            .shiki pre {
-                scrollbar-width: thin;
-                scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-bg);
-            }
-            
-            .shiki pre::-webkit-scrollbar {
-                height: 8px;
-                width: 8px;
-            }
-            
-            .shiki pre::-webkit-scrollbar-track {
-                background: var(--scrollbar-bg);
-            }
-            
-            .shiki pre::-webkit-scrollbar-thumb {
-                background: var(--scrollbar-thumb-bg);
-                border-radius: 4px;
-            }
-            
-            .shiki pre::-webkit-scrollbar-thumb:hover {
-                background: var(--scrollbar-thumb-hover);
-            }
-            
-            ${this.settings.customCSS}
-        `;
-
-        styleEl.textContent = customCSS;
-
-        if (this.settings.debugMode) {
-            console.log('[Shiki Debug] Applied UI settings:', this.settings);
-        }
+        this.codeProcessor?.refreshAllCodeBlocks();
     }
 
     clearCache() {
@@ -639,9 +169,6 @@ export default class ShikiCustomPlugin extends Plugin {
         this.clearCache();
 
         // Remove custom styles
-        const styleEl = document.getElementById('shiki-custom-styles');
-        if (styleEl) {
-            styleEl.remove();
-        }
+        this.uiManager?.removeCustomStyles();
     }
 }

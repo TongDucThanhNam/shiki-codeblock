@@ -41,6 +41,8 @@ export class CodeBlockParser {
                 } else if (part.startsWith("title:") || part.startsWith("file:")) {
                     const prefix = part.startsWith("title:") ? "title:" : "file:";
                     config.title = this.parseTitle(part, prefix);
+                } else if (part.startsWith("filename:")) {
+                    config.filename = this.parseTitle(part, "filename:");
                 } else if (part.startsWith("theme:")) {
                     config.customTheme = part.substring(6);
                 } else if (part === "fold") {

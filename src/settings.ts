@@ -15,7 +15,7 @@ export const DEFAULT_SETTINGS: ShikiPluginSettings = {
     defaultLightTheme: "light-plus",
     autoThemeSwitch: true,
     customThemePath: "",
-    themes: ["dark-plus", "light-plus", "github-dark", "github-light"],
+    themes: ["dark-plus", "light-plus", "github-dark", "github-light", "one-dark-pro", "one-light"],
 
     // Feature settings
     enableLineNumbers: false,
@@ -34,6 +34,11 @@ export const DEFAULT_SETTINGS: ShikiPluginSettings = {
         "java",
         "html",
         "css",
+        "json",
+        "yaml",
+        "markdown",
+        "bash",
+        "shell",
     ],
     autoDetectLanguage: true,
     fallbackLanguage: "text",
@@ -140,6 +145,7 @@ export class ShikiSettingTab extends PluginSettingTab {
                     const lightThemes = {
                         "light-plus": "Light Plus",
                         "github-light": "GitHub Light",
+                        "one-light": "One Light",
                         "min-light": "Min Light",
                         "solarized-light": "Solarized Light",
                         "material-theme-lighter": "Material Lighter",
@@ -161,6 +167,7 @@ export class ShikiSettingTab extends PluginSettingTab {
                         "light-plus": "Light Plus",
                         "github-dark": "GitHub Dark",
                         "github-light": "GitHub Light",
+                        "one-light": "One Light",
                         dracula: "Dracula",
                         monokai: "Monokai",
                         "one-dark-pro": "One Dark Pro",
@@ -286,9 +293,9 @@ export class ShikiSettingTab extends PluginSettingTab {
             .addDropdown((dropdown) => {
                 const fallbackOptions = {
                     text: "Plain Text",
-                    javascript: "JavaScript",
-                    typescript: "TypeScript",
-                    python: "Python",
+                    javascript: "js",
+                    typescript: "ts",
+                    python: "python",
                     markdown: "Markdown",
                 };
                 dropdown.addOptions(fallbackOptions);
@@ -300,8 +307,8 @@ export class ShikiSettingTab extends PluginSettingTab {
             });
 
         new Setting(containerEl)
-            .setName("Supported Languages")
-            .setDesc("Comma-separated list of languages to load")
+            .setName("Core Languages")
+            .setDesc("Core languages loaded at startup. All Shiki-supported languages are auto-loaded on demand when used.")
             .addTextArea((text) => {
                 text.setValue(this.plugin.settings.languages.join(", "));
                 text.onChange(async (value) => {
@@ -313,6 +320,19 @@ export class ShikiSettingTab extends PluginSettingTab {
                 });
                 text.inputEl.rows = 3;
             });
+
+        // Add info about automatic language loading
+        const infoEl = containerEl.createEl("div", {
+            cls: "setting-item-description",
+            text: "ℹ️ This plugin supports all 200+ languages that Shiki supports (like go, rust, php, ruby, swift, etc.). Languages are automatically loaded when first used - you don't need to add them to the core languages list."
+        });
+        infoEl.style.fontSize = "0.875em";
+        infoEl.style.color = "var(--text-muted)";
+        infoEl.style.marginTop = "0.5em";
+        infoEl.style.padding = "0.75em";
+        infoEl.style.backgroundColor = "var(--background-modifier-form-field)";
+        infoEl.style.borderRadius = "0.375em";
+        infoEl.style.border = "1px solid var(--background-modifier-border)";
     }
 
     private addPerformanceSettings(containerEl: HTMLElement): void {

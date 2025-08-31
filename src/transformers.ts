@@ -7,7 +7,7 @@ import {
     transformerNotationHighlight,
     transformerNotationWordHighlight,
     transformerRemoveNotationEscape,
-    transformerRenderWhitespace,
+    // transformerRenderWhitespace,
 } from "@shikijs/transformers";
 import type { ShikiTransformer } from "shiki";
 
@@ -194,7 +194,7 @@ export const getAllTransformers = (
         transformerNotationErrorLevel(), // [!code error] and [!code warning]
         transformerMetaHighlight(), // {1,3-4} meta syntax
         transformerMetaWordHighlight(), // /Hello/ meta syntax
-        transformerRenderWhitespace(), // Render tabs and spaces
+        // transformerRenderWhitespace(), // Render tabs and spaces
         transformerRemoveNotationEscape(), // Remove escape sequences
     );
 

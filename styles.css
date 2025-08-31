@@ -9,6 +9,20 @@
 	line-height: 1.5;
 }
 
+/* Default: No word wrap - enable horizontal scrolling */
+.shiki pre {
+	overflow-x: auto;
+	white-space: pre;
+	word-wrap: normal;
+	word-break: normal;
+}
+
+.shiki code {
+	white-space: pre;
+	word-wrap: normal;
+	word-break: normal;
+}
+
 /* Line highlighting */
 .shiki .highlighted-line {
 	background-color: rgba(255, 255, 0, 0.1);
@@ -45,8 +59,195 @@
 	font-size: 0.875rem;
 }
 
-/* Copy button */
-.shiki.shiki-with-copy {
+/* Code Block Header */
+.shiki.shiki-with-header {
+	border-radius: 0.5rem;
+	overflow: hidden;
+	border: 1px solid var(--background-modifier-border);
+	position: relative;
+}
+
+.shiki.shiki-with-header pre {
+	padding-top: 3rem;
+}
+
+.shiki-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0.75rem 1rem;
+	background: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	font-size: 0.875rem;
+	min-height: 3rem;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	width: 100%;
+	z-index: 10;
+	backdrop-filter: blur(8px);
+}
+
+.shiki-header-left {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	flex: 1;
+}
+
+.shiki-language-container {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	background: var(--background-primary-alt);
+	padding: 0.25rem 0.75rem;
+	border-radius: 0.375rem;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.shiki-file-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.5rem;
+	min-height: 1.5rem;
+}
+
+.shiki-file-icon svg {
+	width: 1.25rem;
+	height: 1.25rem;
+	fill: currentColor;
+}
+
+.shiki-file-icon .shiki-generic-icon {
+	width: 1rem;
+	height: 1rem;
+	opacity: 0.7;
+}
+
+.shiki-filename-display {
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	font-weight: 500;
+	font-size: 0.875rem;
+	flex: 1;
+}
+
+.shiki-language-icon {
+	font-size: 1rem;
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.shiki-language-name {
+	font-family: var(--font-monospace);
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--text-normal);
+	text-transform: uppercase;
+	letter-spacing: 0.025em;
+}
+
+.shiki-filename {
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	font-weight: 500;
+	font-size: 0.875rem;
+	flex: 1;
+}
+
+.shiki-copy-container {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.shiki-copy-button {
+	background: var(--interactive-normal);
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 0.5rem;
+	border-radius: 0.375rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s ease;
+	min-width: 36px;
+	min-height: 36px;
+}
+
+.shiki-copy-button.shiki-copy-success {
+	color: var(--text-success);
+	background: var(--background-modifier-success);
+	border-color: var(--text-success);
+}
+
+.shiki-copy-button.shiki-copy-error {
+	color: var(--text-error);
+	background: var(--background-modifier-error);
+	border-color: var(--text-error);
+}
+
+.shiki-copy-button svg {
+	width: 16px;
+	height: 16px;
+	transition: transform 0.2s ease;
+}
+
+.shiki-copy-button:hover {
+	background: var(--interactive-hover);
+	border-color: var(--interactive-accent);
+	color: var(--text-normal);
+	transform: translateY(-1px);
+}
+
+.shiki-copy-button:focus {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.shiki-copy-button:active {
+	transform: translateY(0);
+}
+
+/* Adjust code content when header is present */
+.shiki.shiki-with-header pre {
+	margin: 0;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+	border-top: none;
+}
+
+.shiki.shiki-with-header code {
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+
+/* Dark theme adjustments */
+.theme-dark .shiki-header {
+	background: var(--background-primary-alt);
+	border-bottom-color: var(--background-modifier-border);
+}
+
+.theme-dark .shiki-language-icon {
+	filter: brightness(1.1);
+}
+
+/* Light theme adjustments */
+.theme-light .shiki-header {
+	background: var(--background-secondary);
+}
+
+.theme-light .shiki-language-icon {
+	filter: brightness(0.9);
+}
+
+/* Copy button - disabled old floating implementation */
+/* .shiki.shiki-with-copy {
 	position: relative;
 	cursor: pointer;
 }
@@ -66,40 +267,26 @@
 	transition: opacity 0.2s;
 	user-select: none;
 	z-index: 10;
-}
+} */
 
-.shiki.shiki-with-copy:hover::after {
-	opacity: 1;
-}
-
-.shiki.shiki-with-copy::after:hover {
-	background-color: rgba(0, 0, 0, 0.9);
-}
-
-/* Language label */
-.shiki.shiki-with-lang::before {
-	content: attr(data-language);
-	position: absolute;
-	top: 0.5rem;
-	left: 0.5rem;
-	padding: 0.125rem 0.375rem;
-	background-color: rgba(0, 0, 0, 0.7);
-	color: white;
-	border-radius: 0.25rem;
-	font-size: 0.625rem;
-	text-transform: uppercase;
-	font-weight: bold;
-	z-index: 1;
-}
-
-/* Word wrap */
+/* Word wrap - override default no-wrap behavior */
 .shiki.shiki-word-wrap {
 	white-space: pre-wrap;
 	word-break: break-all;
+	overflow-wrap: break-word;
+}
+
+.shiki.shiki-word-wrap pre {
+	white-space: pre-wrap;
+	word-break: break-all;
+	overflow-wrap: break-word;
+	overflow-x: visible;
 }
 
 .shiki.shiki-word-wrap code {
 	white-space: pre-wrap;
+	word-break: break-all;
+	overflow-wrap: break-word;
 }
 
 /* Folding */
@@ -159,15 +346,16 @@
 	left: auto;
 }
 
-.shiki.shiki-with-copy.shiki-with-lang::after {
-	/* Move copy button down when language label is present */
+/* Disabled old floating copy button adjustments */
+/* .shiki.shiki-with-copy.shiki-with-lang::after {
+	Move copy button down when language label is present
 	top: 2rem;
 }
 
 .shiki.shiki-with-title.shiki-with-copy::after {
-	/* Move copy button down when title is present */
+	Move copy button down when title is present
 	top: 3rem;
-}
+} */
 
 /* Dark theme adjustments */
 .theme-dark .shiki.shiki-with-title::before {
@@ -201,6 +389,191 @@
 }
 
 /* Interactive features */
-.shiki-copy-button {
+/* .shiki-copy-button {
 	display: none;
+} */
+
+/* ========================================
+   Official @shikijs/transformers Styles
+   ======================================== */
+
+/* Line highlighting from transformerNotationHighlight */
+.shiki .line.highlighted {
+	background-color: rgba(101, 117, 133, 0.16);
+	border-left: 3px solid #4ade80;
+	padding-left: 0.5rem;
+	margin-left: -0.5rem;
+}
+
+.theme-dark .shiki .line.highlighted {
+	background-color: rgba(101, 117, 133, 0.25);
+}
+
+/* Diff highlighting from transformerNotationDiff */
+.shiki .line.diff.add {
+	background-color: rgba(34, 197, 94, 0.15);
+	border-left: 3px solid #22c55e;
+	padding-left: 0.5rem;
+	margin-left: -0.5rem;
+}
+
+.shiki .line.diff.remove {
+	background-color: rgba(239, 68, 68, 0.15);
+	border-left: 3px solid #ef4444;
+	padding-left: 0.5rem;
+	margin-left: -0.5rem;
+}
+
+.theme-dark .shiki .line.diff.add {
+	background-color: rgba(34, 197, 94, 0.2);
+}
+
+.theme-dark .shiki .line.diff.remove {
+	background-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Focus highlighting from transformerNotationFocus */
+.shiki.has-focused .line:not(.focused) {
+	filter: blur(0.095rem);
+	opacity: 0.4;
+	transition: filter 0.35s, opacity 0.35s;
+}
+
+.shiki.has-focused:hover .line:not(.focused) {
+	filter: blur(0);
+	opacity: 1;
+}
+
+.shiki .line.focused {
+	opacity: 1;
+	filter: blur(0);
+	background-color: rgba(101, 117, 133, 0.1);
+}
+
+/* Error and warning levels from transformerNotationErrorLevel */
+.shiki .line.highlighted.error {
+	background-color: rgba(239, 68, 68, 0.1);
+	border-left: 3px solid #ef4444;
+	padding-left: 0.5rem;
+	margin-left: -0.5rem;
+}
+
+.shiki .line.highlighted.warning {
+	background-color: rgba(245, 158, 11, 0.1);
+	border-left: 3px solid #f59e0b;
+	padding-left: 0.5rem;
+	margin-left: -0.5rem;
+}
+
+.theme-dark .shiki .line.highlighted.error {
+	background-color: rgba(239, 68, 68, 0.15);
+}
+
+.theme-dark .shiki .line.highlighted.warning {
+	background-color: rgba(245, 158, 11, 0.15);
+}
+
+/* Word highlighting from transformerNotationWordHighlight */
+.shiki .highlighted-word {
+	background-color: rgba(147, 197, 253, 0.3);
+	border-radius: 0.25rem;
+	padding: 0.125rem 0.25rem;
+	font-weight: 500;
+}
+
+.theme-dark .shiki .highlighted-word {
+	background-color: rgba(147, 197, 253, 0.4);
+}
+
+/* Whitespace rendering from transformerRenderWhitespace */
+.shiki .tab,
+.shiki .space {
+	position: relative;
+}
+
+/* .shiki .tab::before {
+	content: "⇥";
+	position: absolute;
+	opacity: 0.3;
+	pointer-events: none;
+}
+
+.shiki .space::before {
+	content: "·";
+	position: absolute;
+	opacity: 0.3;
+	pointer-events: none;
+} */
+
+/* Container indicators for transformers */
+.shiki.has-highlighted {
+	border-left: 2px solid #4ade80;
+}
+
+.shiki.has-diff {
+	border-left: 2px solid #8b5cf6;
+}
+
+.shiki.has-focused {
+	border-left: 2px solid #06b6d4;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+	.shiki .line.highlighted,
+	.shiki .line.diff.add,
+	.shiki .line.diff.remove,
+	.shiki .line.highlighted.error,
+	.shiki .line.highlighted.warning {
+		margin-left: -0.25rem;
+		padding-left: 0.25rem;
+		border-left-width: 2px;
+	}
+
+	.shiki.has-focused .line:not(.focused) {
+		filter: blur(0.05rem);
+	}
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+	.shiki .line.highlighted {
+		background-color: rgba(101, 117, 133, 0.3);
+		border-left-color: #22c55e;
+	}
+
+	.shiki .line.diff.add {
+		background-color: rgba(34, 197, 94, 0.25);
+	}
+
+	.shiki .line.diff.remove {
+		background-color: rgba(239, 68, 68, 0.25);
+	}
+
+	.shiki .highlighted-word {
+		background-color: rgba(147, 197, 253, 0.5);
+		outline: 1px solid #3b82f6;
+	}
+}
+
+/* Print styles */
+@media print {
+	.shiki .line.highlighted,
+	.shiki .line.diff.add,
+	.shiki .line.diff.remove,
+	.shiki .line.highlighted.error,
+	.shiki .line.highlighted.warning {
+		background-color: transparent !important;
+		border-left: 2px solid #000;
+	}
+
+	.shiki.has-focused .line:not(.focused) {
+		filter: none;
+		opacity: 0.6;
+	}
+
+	.shiki .highlighted-word {
+		background-color: #f0f0f0;
+		outline: 1px solid #000;
+	}
 }

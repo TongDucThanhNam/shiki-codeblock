@@ -46,6 +46,7 @@ export interface CodeBlockConfig {
     showLineNumbers: boolean;
     startLineNumber: number;
     title?: string;
+    filename?: string;
     fold: boolean;
     unfold: boolean;
     exclude: boolean;
