@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "shiki-codeblock",
+	"name": "Shiki Codeblock",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "Add Shiki codeblock to Obsidian.",
+	"author": "terasumi",
+	"authorUrl": "https://tongducthanhnam.id.vn",
+	"fundingUrl": "https://tongducthanhnam.id.vn",
 	"isDesktopOnly": false
 }
